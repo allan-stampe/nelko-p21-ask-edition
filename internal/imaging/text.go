@@ -10,8 +10,8 @@ import (
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/math/fixed"
+	"nelko-print/internal/fonts"
 )
 
 type Orientation int
@@ -23,6 +23,7 @@ const (
 
 // TextOptions configures text rendering
 type TextOptions struct {
+	FontName      string
 	FontSize      float64
 	Orientation   Orientation
 	Invert        bool // White text on black background
@@ -40,7 +41,7 @@ func RenderText(text string, width, height int, fontSize float64, orientation Or
 // RenderTextWithOptions creates an image from text with full options
 func RenderTextWithOptions(text string, width, height int, opts TextOptions) (image.Image, error) {
 	// Load font
-	f, err := truetype.Parse(goregular.TTF)
+	f, err := fonts.Parse(opts.FontName)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +76,7 @@ func RenderTextWithOptions(text string, width, height int, opts TextOptions) (im
 
 	// Calculate text position (centered vertically)
 	face := truetype.NewFace(f, &truetype.Options{Size: opts.FontSize, DPI: 203})
+	defer face.Close()
 	metrics := face.Metrics()
 	textHeight := metrics.Ascent.Ceil()
 

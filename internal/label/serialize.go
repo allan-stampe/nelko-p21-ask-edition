@@ -22,6 +22,7 @@ type elementDTO struct {
 
 	// text
 	Text     string  `json:"text,omitempty"`
+	FontName string  `json:"fontName,omitempty"`
 	FontSize float64 `json:"fontSize,omitempty"`
 	Invert   bool    `json:"invert,omitempty"`
 
@@ -54,6 +55,7 @@ func MarshalDocument(doc *Document) ([]byte, error) {
 			d.Type = "text"
 			d.Text = e.Text
 			d.FontSize = e.FontSize
+			d.FontName = e.FontName
 			d.Invert = e.Invert
 		case *BarcodeElement:
 			d.Type = "barcode"
@@ -96,6 +98,7 @@ func UnmarshalDocument(data []byte) (*Document, error) {
 		case "text":
 			t := NewText(d.Text)
 			t.FontSize = d.FontSize
+			t.FontName = d.FontName
 			t.Invert = d.Invert
 			el = t
 		case "barcode":

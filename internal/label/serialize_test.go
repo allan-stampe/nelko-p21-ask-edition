@@ -74,3 +74,25 @@ func TestUnmarshalRejectsBadFormat(t *testing.T) {
 		t.Error("expected error for bad format")
 	}
 }
+
+func TestLegacyTextFontFallback(t *testing.T) {
+	data := []byte(`{"format":"nelko-label-v1","elements":[{"type":"text","x":0,"y":0,"w":200,"h":80,"text":"ASK","fontSize":12}]}`)
+	doc, err := UnmarshalDocument(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := doc.Elements[0].(*TextElement)
+	if text.FontName != "" {
+		t.Fatal("legacy font unexpectedly changed")
+	}
+	legacy := text.Raster(1)
+	text.FontName = "Go Regular"
+	explicit := text.Raster(1)
+	for y := 0; y < legacy.Bounds().Dy(); y++ {
+		for x := 0; x < legacy.Bounds().Dx(); x++ {
+			if legacy.At(x, y) != explicit.At(x, y) {
+				t.Fatal("legacy text rendering changed")
+			}
+		}
+	}
+}

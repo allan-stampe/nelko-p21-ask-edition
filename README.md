@@ -1,4 +1,41 @@
-# Fyne-P21-Print
+# NELKO P21 – ASK Edition v1.0.0
+
+ASK Edition of **Fyne-P21-Print**, the cross-platform Go/Fyne label maker for NELKO P21.
+
+- Editable multiline Designer text with a scrollable property editor.
+- Automatic preferences: bundled font (Go Regular / Bold / Mono), size, label dimensions, darkness, text, orientation and last printer.
+- Automatic connection to the last printer at startup and retries after detected connection errors. Explicit Disconnect cancels retries for the current session. Failed print jobs are never replayed automatically.
+- Named label and template library: save, open/edit, replace, rename and delete. Includes two editable starter templates. Text and complete Designer documents are supported; add images in Designer to include them in the library.
+- Danish (default) and English, selectable in **Language / Sprog**.
+- Visible version and battery level, or “unknown” when the existing battery query is unsupported.
+
+### Windows 11 download and testing
+
+The **[ASK Edition - Windows x64](https://github.com/allan-stampe/nelko-p21-ask-edition/actions/workflows/windows-build.yml)** workflow runs tests and builds a standalone 64-bit GUI EXE on every branch push, pull request and manual run. Download the ZIP under **Artifacts** on a successful run. It includes the EXE, original MIT license and test guide. No merge or release tag is needed to build the development branch.
+
+See [the Danish Windows 11 test guide](docs/WINDOWS-11-TEST.md) for physical printer acceptance checks and connection-detection limitations. The existing Bluetooth backends, serial settings, battery command and TSPL output have not been changed.
+
+Preferences and the library are stored locally through Fyne under the stable app id `dk.ask.nelko-p21`. Designer `.nlbl` files remain compatible; older labels without a font field use Go Regular. The last standalone image is not restored on restart; image elements inside saved Designer labels are retained.
+
+### Credits and license
+
+Original Fyne-P21-Print: **Tyler C**, Copyright (c) 2026, MIT. The original [LICENSE](LICENSE) is preserved unchanged. Printer protocol research: [merlinschumacher/nelko-p21-print](https://github.com/merlinschumacher/nelko-p21-print). ASK Edition is developed in [allan-stampe/nelko-p21-ask-edition](https://github.com/allan-stampe/nelko-p21-ask-edition).
+
+### Development checks
+
+```sh
+go test -count=1 ./...
+go test -tags ci -race -count=1 ./...
+go vet -tags ci ./...
+go build ./cmd/nelko-print
+```
+
+Fyne requires CGO and a C compiler for desktop builds. The `ci` build tag uses Fyne's software driver for tests without desktop system libraries. The original release workflow remains available for tagged cross-platform builds.
+
+---
+
+## Original project documentation
+
 Cross-platform label maker app for the Nelko P21 thermal printer. Works on Linux and Windows!
 
 Written in Go using Fyne

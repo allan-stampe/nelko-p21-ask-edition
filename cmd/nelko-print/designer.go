@@ -11,16 +11,20 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 
+	"nelko-print/internal/fonts"
 	"nelko-print/internal/imaging"
 	"nelko-print/internal/label"
 )
 
 func (a *App) buildDesignerTab() fyne.CanvasObject {
 	a.designCanvas = newLabelCanvas(a.designDoc, a.labelSize, a.rebuildDesigner)
-	a.designProps = container.NewVBox(widget.NewLabel("Select an element to edit"))
+	a.designProps = container.NewVBox(widget.NewLabel(a.tr("Select an element to edit")))
 
 	addText := widget.NewButton("+ Text", func() {
-		a.designCanvas.Add(label.NewText("Text"))
+		el := label.NewText(a.tr("Text"))
+		el.FontName = a.fontName
+		el.FontSize = a.fontSize
+		a.designCanvas.Add(el)
 		a.refreshDesignerProps()
 	})
 	addBarcode := widget.NewButton("+ Barcode", func() {
@@ -40,15 +44,12 @@ func (a *App) buildDesignerTab() fyne.CanvasObject {
 	loadBtn := widget.NewButton("Load", func() { a.designerLoad() })
 	exportBtn := widget.NewButton("Export PNG", func() { a.designerExportPNG() })
 
-	toolbar := container.NewHBox(addText, addImage, addBarcode, addShape, delBtn,
+	toolbar := container.NewGridWithColumns(3, addText, addImage, addBarcode, addShape, delBtn,
 		widget.NewSeparator(), saveBtn, loadBtn, exportBtn)
 
-	return container.NewBorder(
-		toolbar,
-		a.designProps,
-		nil, nil,
-		container.NewScroll(a.designCanvas),
-	)
+	editor := container.NewVSplit(container.NewScroll(a.designCanvas), container.NewVScroll(a.designProps))
+	editor.SetOffset(0.55)
+	return container.NewBorder(toolbar, nil, nil, nil, editor)
 }
 
 // renderDesignPreview re-renders the label into the shared preview without
@@ -57,7 +58,7 @@ func (a *App) buildDesignerTab() fyne.CanvasObject {
 // in the same landscape orientation as the editor canvas so the two match;
 // a.sourceImg keeps the portrait (print-ready) image for the Print button.
 func (a *App) renderDesignPreview() {
-	if a.designDoc == nil {
+	if a.loading || a.previewImg == nil || a.designDoc == nil {
 		return
 	}
 	a.sourceImg = label.Render(a.designDoc, a.labelSize)
@@ -67,7 +68,7 @@ func (a *App) renderDesignPreview() {
 	prev = imaging.RotatePreviewForDisplay(prev)
 	a.previewImg.Image = prev
 	a.previewImg.Refresh()
-	if a.printer != nil {
+	if a.isConnected() {
 		a.printBtn.Enable()
 	}
 }
@@ -76,6 +77,7 @@ func (a *App) renderDesignPreview() {
 // change happened, so refresh both the preview and the property strip.
 func (a *App) rebuildDesigner() {
 	a.renderDesignPreview()
+	a.saveSettings()
 	a.refreshDesignerProps()
 }
 
@@ -159,22 +161,42 @@ func (a *App) designerExportPNG() {
 func (a *App) refreshDesignerProps() {
 	sel := a.designCanvas.Selected()
 	if sel == nil {
-		a.designProps.Objects = []fyne.CanvasObject{widget.NewLabel("Select an element to edit")}
+		a.designProps.Objects = []fyne.CanvasObject{widget.NewLabel(a.tr("Select an element to edit"))}
 		a.designProps.Refresh()
 		return
 	}
 	var content fyne.CanvasObject
 	switch el := sel.(type) {
 	case *label.TextElement:
-		entry := widget.NewEntry()
+		entry := widget.NewMultiLineEntry()
+		entry.SetMinRowsVisible(2)
 		entry.SetText(el.Text)
-		entry.OnChanged = func(s string) { el.Text = s; a.designCanvas.Rebuild(); a.renderDesignPreview() }
-		fontSlider := widget.NewSlider(6, 72)
+		entry.OnChanged = func(s string) { el.Text = s; a.designCanvas.Rebuild(); a.renderDesignPreview(); a.saveSettings() }
+		fontSlider := widget.NewSlider(4, 72)
 		fontSlider.Value = el.FontSize
-		fontSlider.OnChanged = func(f float64) { el.FontSize = f; a.designCanvas.Rebuild(); a.renderDesignPreview() }
-		inv := widget.NewCheck("Invert", func(b bool) { el.Invert = b; a.designCanvas.Rebuild(); a.renderDesignPreview() })
+		fontSlider.OnChanged = func(f float64) {
+			el.FontSize = f
+			a.fontSize = f
+			a.designCanvas.Rebuild()
+			a.renderDesignPreview()
+			a.saveSettings()
+		}
+		inv := widget.NewCheck("Invert", func(b bool) { el.Invert = b; a.designCanvas.Rebuild(); a.renderDesignPreview(); a.saveSettings() })
 		inv.SetChecked(el.Invert)
+		fontSelect := widget.NewSelect(fonts.Names, func(s string) {
+			el.FontName = s
+			a.fontName = s
+			a.designCanvas.Rebuild()
+			a.renderDesignPreview()
+			a.saveSettings()
+		})
+		fontName := el.FontName
+		if !fonts.Valid(fontName) {
+			fontName = fonts.Names[0]
+		}
+		fontSelect.SetSelected(fontName)
 		content = widget.NewForm(
+			widget.NewFormItem("Font", fontSelect),
 			widget.NewFormItem("Text", entry),
 			widget.NewFormItem("Size", fontSlider),
 			widget.NewFormItem("", inv),
@@ -182,7 +204,7 @@ func (a *App) refreshDesignerProps() {
 	case *label.BarcodeElement:
 		data := widget.NewEntry()
 		data.SetText(el.Data)
-		data.OnChanged = func(s string) { el.Data = s; a.designCanvas.Rebuild(); a.renderDesignPreview() }
+		data.OnChanged = func(s string) { el.Data = s; a.designCanvas.Rebuild(); a.renderDesignPreview(); a.saveSettings() }
 		kinds := widget.NewSelect([]string{"Aztec", "QR", "DataMatrix", "Code128"}, func(s string) {
 			switch s {
 			case "Aztec":
@@ -196,6 +218,7 @@ func (a *App) refreshDesignerProps() {
 			}
 			a.designCanvas.Rebuild()
 			a.renderDesignPreview()
+			a.saveSettings()
 		})
 		kinds.SetSelected(barcodeKindName(el.Kind))
 		content = widget.NewForm(
@@ -205,8 +228,13 @@ func (a *App) refreshDesignerProps() {
 	case *label.ImageElement:
 		thr := widget.NewSlider(0, 255)
 		thr.Value = float64(el.Threshold)
-		thr.OnChanged = func(f float64) { el.Threshold = uint8(f); a.designCanvas.Rebuild(); a.renderDesignPreview() }
-		inv := widget.NewCheck("Invert", func(b bool) { el.Invert = b; a.designCanvas.Rebuild(); a.renderDesignPreview() })
+		thr.OnChanged = func(f float64) {
+			el.Threshold = uint8(f)
+			a.designCanvas.Rebuild()
+			a.renderDesignPreview()
+			a.saveSettings()
+		}
+		inv := widget.NewCheck("Invert", func(b bool) { el.Invert = b; a.designCanvas.Rebuild(); a.renderDesignPreview(); a.saveSettings() })
 		inv.SetChecked(el.Invert)
 		content = widget.NewForm(
 			widget.NewFormItem("Threshold", thr),
@@ -224,12 +252,14 @@ func (a *App) refreshDesignerProps() {
 			}
 			a.designCanvas.Rebuild()
 			a.renderDesignPreview()
+			a.saveSettings()
 		})
 		kinds.SetSelected(shapeKindName(el.Kind))
 		content = widget.NewForm(widget.NewFormItem("Shape", kinds))
 	default:
-		content = widget.NewLabel("No properties")
+		content = widget.NewLabel(a.tr("No properties"))
 	}
+	a.translateUI(content)
 	a.designProps.Objects = []fyne.CanvasObject{content}
 	a.designProps.Refresh()
 }
