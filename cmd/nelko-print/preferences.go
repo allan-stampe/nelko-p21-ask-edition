@@ -5,11 +5,13 @@ import (
 
 	"nelko-print/internal/imaging"
 	"nelko-print/internal/label"
+	"nelko-print/internal/printer"
 	"nelko-print/internal/settings"
 	"nelko-print/internal/tspl"
 )
 
 func (a *App) loadSettings() {
+	a.commLog = &printer.CommunicationLog{}
 	var err error
 	a.prefs, err = settings.Load(a.fyneApp.Preferences())
 	if err != nil {
@@ -22,6 +24,7 @@ func (a *App) loadSettings() {
 	}
 	a.fyneApp.Preferences().SetString("ask.language", a.prefs.Language)
 	a.fyneApp.Preferences().SetBool("ask.autoReconnect", a.prefs.AutoReconnect)
+	a.fyneApp.Preferences().SetBool("ask.pollBattery", a.prefs.PollBattery)
 	a.applySettings(a.prefs)
 }
 
@@ -66,6 +69,7 @@ func (a *App) saveSettings() {
 	}
 	a.fyneApp.Preferences().SetString("ask.language", a.prefs.Language)
 	a.fyneApp.Preferences().SetBool("ask.autoReconnect", a.prefs.AutoReconnect)
+	a.fyneApp.Preferences().SetBool("ask.pollBattery", a.prefs.PollBattery)
 	s, err := a.snapshot()
 	if err == nil {
 		err = settings.Save(a.fyneApp.Preferences(), s)

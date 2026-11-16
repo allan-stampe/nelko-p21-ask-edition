@@ -7,6 +7,15 @@ import (
 )
 
 var danish = map[string]string{
+	"Diagnostics": "Diagnostik", "Ready for diagnostics": "Klar til diagnostik",
+	"Test battery": "Test batteri", "Cancel Pause": "Cancel Pause", "Reference test print": "Reference-testudskrift",
+	"Automatic battery polling": "Automatiske batteriforespørgsler",
+	"Test label: 14x40 mm, density 15, one label. Uses the connected port.": "Testetiket: 14x40 mm, sværtningsgrad 15, én etiket. Bruger den tilsluttede port.",
+	"Save communication log": "Gem kommunikationslog", "Refresh log": "Opdatér log",
+	"No valid battery reply; see communication log": "Intet gyldigt batterisvar; se kommunikationsloggen",
+	"Running...": "Kører...", "Command sent; check printer and log": "Kommando sendt; kontrollér printer og log",
+	"Print data sent; check printer": "Udskriftsdata sendt; kontrollér printeren",
+
 	"Error": "Fejl", "Yes": "Ja", "No": "Nej", "Open": "Åbn",
 	"About": "Om programmet", "Help": "Hjælp", "Close": "Luk",
 	"A label printing app for the Nelko P21 thermal printer.": "Etiketprogram til NELKO P21-termoprinteren.",

@@ -1,4 +1,4 @@
-# NELKO P21 – ASK Edition v1.0.0
+# NELKO P21 – ASK Edition v1.0.1
 
 ASK Edition of **Fyne-P21-Print**, the cross-platform Go/Fyne label maker for NELKO P21.
 
@@ -8,12 +8,13 @@ ASK Edition of **Fyne-P21-Print**, the cross-platform Go/Fyne label maker for NE
 - Named label and template library: save, open/edit, replace, rename and delete. Includes two editable starter templates. Text and complete Designer documents are supported; add images in Designer to include them in the library.
 - Danish (default) and English, selectable in **Language / Sprog**.
 - Visible version and battery level, or “unknown” when the existing battery query is unsupported.
+- **Diagnostics**: timestamped actual serial TX/RX in escaped ASCII and HEX, manual battery test, Cancel Pause, a fixed reference print (14x40 mm / density 15 / 3408 bitmap bytes), and saveable communication logs. Automatic battery polling is opt-in, so reconnecting and printing do not insert unrequested battery queries. Existing saved preferences and libraries retain the same app ID and storage keys.
 
 ### Windows 11 download and testing
 
 The **[ASK Edition - Windows x64](https://github.com/allan-stampe/nelko-p21-ask-edition/actions/workflows/windows-build.yml)** workflow runs tests and builds a standalone 64-bit GUI EXE on every branch push, pull request and manual run. Download the ZIP under **Artifacts** on a successful run. It includes the EXE, original MIT license and test guide. No merge or release tag is needed to build the development branch.
 
-See [the Danish Windows 11 test guide](docs/WINDOWS-11-TEST.md) for physical printer acceptance checks and connection-detection limitations. The existing Bluetooth backends, serial settings, battery command and TSPL output have not been changed.
+See [the Danish Windows 11 test guide](docs/WINDOWS-11-TEST.md) for physical printer acceptance checks and connection-detection limitations. The existing Bluetooth backends, COM-port discovery and serial settings (115200 baud, 8N1) are preserved. Version 1.0.1 adopts the hardware-tested print timing and adds serial diagnostics; see [the protocol comparison](docs/PRINT-DIAGNOSTICS-v1.0.1.md).
 
 Preferences and the library are stored locally through Fyne under the stable app id `dk.ask.nelko-p21`. Designer `.nlbl` files remain compatible; older labels without a font field use Go Regular. The last standalone image is not restored on restart; image elements inside saved Designer labels are retained.
 
@@ -30,7 +31,7 @@ go vet -tags ci ./...
 go build ./cmd/nelko-print
 ```
 
-Fyne requires CGO and a C compiler for desktop builds. The `ci` build tag uses Fyne's software driver for tests without desktop system libraries. The original release workflow remains available for tagged cross-platform builds.
+Fyne requires CGO and a C compiler for desktop builds. The `ci` build tag uses Fyne's software driver for tests without desktop system libraries. The original release workflow remains available for tagged cross-platform builds. The Windows build ZIP also includes the protocol comparison and hardware diagnostic test instructions.
 
 ---
 

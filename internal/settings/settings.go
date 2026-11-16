@@ -37,6 +37,7 @@ type Settings struct {
 	LastPrinter     string          `json:"lastPrinter"`
 	LastPrinterName string          `json:"lastPrinterName"`
 	ConnectionMode  string          `json:"connectionMode"`
+	PollBattery     bool            `json:"pollBattery"`
 	AutoReconnect   bool            `json:"autoReconnect"`
 	Mode            string          `json:"mode"`
 	Design          json.RawMessage `json:"design,omitempty"`

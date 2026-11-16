@@ -26,11 +26,19 @@ import (
 )
 
 const (
-	AppVersion = "1.0.0"
+	AppVersion = "1.0.1"
 	AppName    = "NELKO P21 – ASK Edition"
 )
 
 type App struct {
+	commLog      *printer.CommunicationLog
+	diagLogEntry *widget.Entry
+	diagStatus   *widget.Label
+	diagButtons  []*widget.Button
+	diagBusy     bool
+	diagRevision uint64
+	diagStop     chan struct{}
+	diagDone     chan struct{}
 	prefs        settings.Settings
 	library      settings.Library
 	libraryErr   error
@@ -95,6 +103,7 @@ func main() {
 	w.SetMainMenu(nelkoApp.buildMenu())
 	w.SetContent(nelkoApp.buildUI())
 	nelkoApp.renderActivePreview()
+	nelkoApp.startDiagnosticsMonitor()
 	nelkoApp.restoreConnection()
 	w.SetOnClosed(func() {
 		nelkoApp.cleanup()
@@ -140,6 +149,11 @@ func parseURL(urlStr string) *url.URL {
 }
 
 func (a *App) cleanup() {
+	if a.diagStop != nil {
+		close(a.diagStop)
+		<-a.diagDone
+		a.diagStop = nil
+	}
 	a.saveSettings()
 	a.connMu.Lock()
 	a.closed = true
@@ -352,6 +366,7 @@ func (a *App) buildUI() fyne.CanvasObject {
 		container.NewTabItem("Text", textTab),
 		container.NewTabItem("Designer", a.buildDesignerTab()),
 		container.NewTabItem("Library", a.buildLibraryTab()),
+		container.NewTabItem("Diagnostics", a.buildDiagnosticsTab()),
 	)
 	a.tabs = tabs
 	switch a.mode {
@@ -642,8 +657,14 @@ func (a *App) print() {
 	a.statusLabel.SetText(a.tr("Printing..."))
 	a.printBtn.Disable()
 
+	a.commLog.Record("app", "ACTION", nil, "Print started")
 	go func() {
 		err := p.Print(job)
+		note := "Print data sent; settle delay complete"
+		if err != nil {
+			note = err.Error()
+		}
+		a.commLog.Record("app", "ACTION", nil, note)
 
 		a.uiMu.Lock()
 		defer a.uiMu.Unlock()
@@ -652,7 +673,7 @@ func (a *App) print() {
 			a.connectionFailed(p)
 			a.showError(err)
 		} else {
-			a.statusLabel.SetText(a.tr("Print complete!"))
+			a.statusLabel.SetText(a.tr("Print data sent; check printer"))
 		}
 		if a.isConnected() {
 			a.printBtn.Enable()

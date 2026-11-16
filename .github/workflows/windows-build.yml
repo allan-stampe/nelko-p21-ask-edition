@@ -55,16 +55,16 @@ jobs:
         shell: msys2 {0}
         run: |
           mkdir -p dist
-          go build -mod=readonly -trimpath -ldflags="-s -w -H=windowsgui" -o dist/NELKO-P21-ASK-Edition-v1.0.0-windows-amd64.exe ./cmd/nelko-print
+          go build -mod=readonly -trimpath -ldflags="-s -w -H=windowsgui" -o dist/NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.exe ./cmd/nelko-print
       - name: Package with original license and credits
         shell: pwsh
         run: |
-          Copy-Item LICENSE, README.md, docs/WINDOWS-11-TEST.md dist/
-          Compress-Archive -Path dist/* -DestinationPath NELKO-P21-ASK-Edition-v1.0.0-windows-amd64.zip
+          Copy-Item LICENSE, README.md, docs/WINDOWS-11-TEST.md, docs/PRINT-DIAGNOSTICS-v1.0.1.md dist/
+          Compress-Archive -Path dist/* -DestinationPath NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.zip
       - name: Upload Windows download
         uses: actions/upload-artifact@v4
         with:
-          name: NELKO-P21-ASK-Edition-v1.0.0-windows-amd64
-          path: NELKO-P21-ASK-Edition-v1.0.0-windows-amd64.zip
+          name: NELKO-P21-ASK-Edition-v1.0.1-windows-amd64
+          path: NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.zip
           if-no-files-found: error
           retention-days: 30

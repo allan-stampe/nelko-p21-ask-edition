@@ -15,6 +15,8 @@ type printerConnection interface {
 	Alive() bool
 	GetBattery() (int, error)
 	Print([]byte) error
+	PrintChunks([][]byte) error
+	CancelPause() error
 	Close() error
 }
 
@@ -172,6 +174,7 @@ func (a *App) runConnection(s *connectionSession, target, name, mode string) {
 			return
 		}
 		var err error
+		a.commLog.Record(target, "CONNECT", nil, "mode="+mode+" name="+name)
 		path := target
 		if mode == "bluetooth" {
 			// Keep the existing platform Bluetooth implementation unchanged.
@@ -184,13 +187,14 @@ func (a *App) runConnection(s *connectionSession, target, name, mode string) {
 			if a.dialPrinter != nil {
 				p, err = a.dialPrinter(path)
 			} else {
-				p, err = printer.Connect(path)
+				p, err = printer.ConnectWithLog(path, a.commLog)
 			}
 		}
 		if !a.sessionCurrent(s) {
 			return
 		}
 		if err != nil {
+			a.commLog.Record(target, "ERROR", nil, err.Error())
 			closePort()
 			a.withSessionUI(s, func() { a.statusLabel.SetText(fmt.Sprintf(a.tr("Connection failed: %v"), err)) })
 			if !a.retryConnection(s) {
@@ -202,7 +206,10 @@ func (a *App) runConnection(s *connectionSession, target, name, mode string) {
 		s.p = p
 		a.connMu.Unlock()
 		a.withSessionUI(s, func() { a.statusLabel.SetText(fmt.Sprintf(a.tr("Connected to %s"), name)); a.printBtn.Enable() })
-		batterySupported := a.updateBattery(p)
+		batterySupported := false
+		if a.fyneApp.Preferences().Bool("ask.pollBattery") {
+			batterySupported = a.updateBattery(p)
+		}
 		missed := 0
 		ticker := time.NewTicker(5 * time.Second)
 		lost := false
@@ -216,7 +223,7 @@ func (a *App) runConnection(s *connectionSession, target, name, mode string) {
 			case <-ticker.C:
 				if !p.Alive() {
 					lost = true
-				} else {
+				} else if a.fyneApp.Preferences().Bool("ask.pollBattery") {
 					ok := a.updateBattery(p)
 					if ok {
 						batterySupported = true

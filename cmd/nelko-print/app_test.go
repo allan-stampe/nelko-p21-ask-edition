@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"image/png"
+	"strings"
 	"testing"
 	"time"
 
@@ -169,8 +170,10 @@ func (p *fakePrinter) GetBattery() (int, error) {
 	}
 	return p.battery, p.batteryErr
 }
-func (p *fakePrinter) Print([]byte) error { return nil }
-func (p *fakePrinter) Close() error       { close(p.closed); return nil }
+func (p *fakePrinter) PrintChunks([][]byte) error { return nil }
+func (p *fakePrinter) Print([]byte) error         { return nil }
+func (p *fakePrinter) CancelPause() error         { return nil }
+func (p *fakePrinter) Close() error               { close(p.closed); return nil }
 
 func TestDisconnectCancelsInFlightOpen(t *testing.T) {
 	a := testApp(t)
@@ -220,6 +223,8 @@ func TestLibraryTabAvailable(t *testing.T) {
 
 func TestReconnectAfterPrintFailureAndExplicitDisconnect(t *testing.T) {
 	a := testApp(t)
+	a.prefs.PollBattery = true
+	a.saveSettings()
 	first := &fakePrinter{closed: make(chan struct{}), queried: make(chan struct{}, 1)}
 	second := &fakePrinter{closed: make(chan struct{}), queried: make(chan struct{}, 1)}
 	attempts := make(chan string, 3)
@@ -286,4 +291,86 @@ func TestBatteryUnavailableAndValid(t *testing.T) {
 		t.Fatal("unsupported query shown as a percentage")
 	}
 	a.stopConnection()
+}
+
+func TestDiagnosticsLogExportAndLanguage(t *testing.T) {
+	a := testApp(t)
+	if len(a.tabs.Items) != 5 || a.tabs.Items[4].Text != "Diagnostik" {
+		t.Fatal("diagnostics tab missing")
+	}
+	oldMode := a.mode
+	a.tabs.SelectIndex(4)
+	if a.mode != oldMode {
+		t.Fatal("diagnostics changed active label")
+	}
+	a.commLog.Record("COM5", "TX", []byte{0x1b, 0x21, 0x6f}, "")
+	a.commLog.Record("COM5", "RX", []byte("BATTERY"), "")
+	a.uiMu.Lock()
+	a.refreshDiagnosticLogLocked()
+	a.uiMu.Unlock()
+	if !a.diagLogEntry.Disabled() {
+		t.Fatal("communication view can be edited")
+	}
+	text := a.communicationLogText()
+	for _, want := range []string{"v1.0.1", "COM5", "TX 3 bytes", "RX 7 bytes", "ASCII:", "HEX:", "1b 21 6f"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("export missing %q", want)
+		}
+	}
+	a.changeLanguage("en")
+	if a.tabs.Items[4].Text != "Diagnostics" {
+		t.Fatal("diagnostics not translated")
+	}
+	if a.diagLogEntry.Text == "" {
+		t.Fatal("language switch lost log")
+	}
+	if a.prefs.PollBattery || a.fyneApp.Preferences().Bool("ask.pollBattery") {
+		t.Fatal("unrequested battery polling enabled")
+	}
+}
+
+func TestDiagnosticsMonitorAndActionSurviveUIRebuild(t *testing.T) {
+	a := testApp(t)
+	a.startDiagnosticsMonitor()
+	a.commLog.Record("COM5", "TX", []byte("TEST"), "")
+	waitFor := func(check func() bool) {
+		t.Helper()
+		deadline := time.Now().Add(3 * time.Second)
+		for time.Now().Before(deadline) {
+			a.uiMu.Lock()
+			ok := check()
+			a.uiMu.Unlock()
+			if ok {
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		t.Fatal("diagnostic UI event timed out")
+	}
+	waitFor(func() bool { return strings.Contains(a.diagLogEntry.Text, "TEST") })
+	p := &fakePrinter{closed: make(chan struct{})}
+	s := &connectionSession{stop: make(chan struct{}), failed: make(chan struct{}, 1), p: p}
+	a.connMu.Lock()
+	a.connection = s
+	a.connMu.Unlock()
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	a.runDiagnostic("Cancel Pause", true, func(printerConnection) error { close(entered); <-release; return nil })
+	<-entered
+	a.changeLanguage("en")
+	a.uiMu.Lock()
+	busy := a.diagBusy && a.diagButtons[0].Disabled()
+	a.uiMu.Unlock()
+	if !busy {
+		close(release)
+		t.Fatal("in-flight action enabled duplicate diagnostic commands")
+	}
+	close(release)
+	waitFor(func() bool { return !a.diagBusy })
+	a.uiMu.Lock()
+	completed := !a.diagButtons[0].Disabled() && strings.Contains(a.diagLogEntry.Text, "Cancel Pause completed")
+	a.uiMu.Unlock()
+	if !completed {
+		t.Fatal("action result missing after UI rebuild")
+	}
 }
