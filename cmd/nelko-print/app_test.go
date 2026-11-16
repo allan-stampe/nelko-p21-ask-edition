@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"image/png"
 	"strings"
 	"testing"
@@ -372,5 +373,75 @@ func TestDiagnosticsMonitorAndActionSurviveUIRebuild(t *testing.T) {
 	a.uiMu.Unlock()
 	if !completed {
 		t.Fatal("action result missing after UI rebuild")
+	}
+}
+
+// A fresh app must use the saved COM target, including when enumeration is
+// temporarily missing it. Reconnection is opt-in and must not select COM5.
+func TestSavedCOMPortRestoredAcrossRestart(t *testing.T) {
+	a := testApp(t)
+	first := &fakePrinter{closed: make(chan struct{})}
+	a.portSelect.Options = []string{"COM1", "COM4", "COM5"}
+	a.portSelect.SetSelected("COM4")
+	a.dialPrinter = func(port string) (printerConnection, error) {
+		if port != "COM4" {
+			return nil, fmt.Errorf("unexpected target %s", port)
+		}
+		return first, nil
+	}
+	a.connectManualPort()
+	deadline := time.Now().Add(2 * time.Second)
+	for !a.isConnected() && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if !a.isConnected() {
+		t.Fatal("first connection did not open")
+	}
+	a.disconnect()
+	select {
+	case <-first.closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first connection not closed")
+	}
+	saved := a.fyneApp.Preferences().String(settings.SettingsKey)
+
+	restarted := testApp(t)
+	restarted.fyneApp.Preferences().SetString(settings.SettingsKey, saved)
+	restarted.loadSettings()
+	restarted.window.SetContent(restarted.buildUI())
+	if restarted.prefs.LastPrinter != "COM4" || restarted.prefs.ConnectionMode != "port" || restarted.portSelect.Selected != "COM4" {
+		t.Fatal("saved port was lost or replaced on restart")
+	}
+	restarted.prefs.AutoReconnect = false
+	restarted.saveSettings()
+	restarted.restoreConnection()
+	restarted.connMu.Lock()
+	active := restarted.connection != nil
+	restarted.connMu.Unlock()
+	if active {
+		t.Fatal("auto-reconnect off still opened a session")
+	}
+
+	targets := make(chan string, 1)
+	release := make(chan struct{})
+	second := &fakePrinter{closed: make(chan struct{})}
+	restarted.dialPrinter = func(port string) (printerConnection, error) { targets <- port; <-release; return second, nil }
+	restarted.prefs.AutoReconnect = true
+	restarted.saveSettings()
+	restarted.restoreConnection()
+	select {
+	case target := <-targets:
+		if target != "COM4" {
+			t.Fatalf("restart opened %s instead of COM4", target)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("saved target was not reopened")
+	}
+	restarted.disconnect()
+	close(release)
+	select {
+	case <-second.closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cancelled restart connection not closed")
 	}
 }

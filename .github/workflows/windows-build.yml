@@ -3,9 +3,9 @@ name: ASK Edition - Windows x64
 on:
   push:
     branches: ['**']
-    tags: ['v*']
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -20,6 +20,18 @@ jobs:
         with:
           go-version: '1.24.x'
           cache: true
+      - name: Verify application version and release tag
+        env:
+          PACKAGE_VERSION: '1.0.1'
+        run: |
+          python3 - <<'PYVERSION'
+          import os, re
+          from pathlib import Path
+          version = re.search(r'AppVersion\s*=\s*"([^"]+)"', Path('cmd/nelko-print/main.go').read_text()).group(1)
+          assert version == os.environ['PACKAGE_VERSION'], 'Update package names with AppVersion'
+          if os.environ['GITHUB_REF_TYPE'] == 'tag':
+              assert os.environ['GITHUB_REF_NAME'] == 'v' + version, 'Tag must match AppVersion'
+          PYVERSION
       - name: Verify modules
         run: go mod download && go mod verify
       - name: Run all tests with race detector
@@ -59,7 +71,7 @@ jobs:
       - name: Package with original license and credits
         shell: pwsh
         run: |
-          Copy-Item LICENSE, README.md, docs/WINDOWS-11-TEST.md, docs/PRINT-DIAGNOSTICS-v1.0.1.md dist/
+          Copy-Item LICENSE, README.md, CHANGELOG.md, ROADMAP.md, docs/WINDOWS-11-TEST.md, docs/PRINT-DIAGNOSTICS-v1.0.1.md, docs/RELEASE-v1.0.1.md dist/
           Compress-Archive -Path dist/* -DestinationPath NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.zip
       - name: Upload Windows download
         uses: actions/upload-artifact@v4

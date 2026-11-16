@@ -1,10 +1,20 @@
 # Sammenligning: PowerShell-reference og ASK Edition v1.0.1
 
-Brugeren har fysisk bekræftet udskrivning fra PowerShell på Windows 11 via COM5, 115200 baud, 8N1. Begge tidligere programmer havde udskrivningsproblemer. Der er endnu ingen fysisk dokumentation for, hvilken forskel der løser problemet. v1.0.1 er en instrumenteret kandidat til afprøvning, ikke en bekræftet hardwareløsning.
+## Bekræftet hardwaretest — 16. november 2026
+
+Projektejeren har bekræftet, at **ASK Edition v1.0.1 udskriver på en fysisk NELKO P21 under Windows 11 via COM4, 115200 baud, 8N1**. Det sidste problem var valg af forkert COM-port. Dette er en brugerbekræftet hardwaretest; det er ikke en fysisk test udført af CI eller udviklingsmiljøet.
+
+COM4 er resultatet på den afprøvede pc, ikke en fast port i programmet. Kontrollér den faktiske udgående Bluetooth-port på andre pc'er. Den valgte port og forbindelsesmetode gemmes og bruges igen ved genstart; automatisk tilslutning kan slås fra.
+
+Den tidligere PowerShell-reference blev rapporteret med COM5. Den historiske reference bevares nedenfor, men COM5 skal ikke kopieres ukritisk ind i ASK Edition. Den seneste bekræftelse er **COM4 i ASK Edition**.
+
+Det er ikke dokumenteret, at den gamle version også er genafprøvet på COM4, eller at batterisvar, alle labelstørrelser og alle øvrige funktioner er fysisk afprøvet. Timingændringerne i v1.0.1 bevares, men deres individuelle effekt er ikke isoleret. De må derfor ikke beskrives som den beviste årsag til løsningen.
+
+## Historisk protokolsammenligning
 
 | Punkt | ASK Edition v1.0.0 | Fysisk testet sekvens | v1.0.1 |
 |---|---|---|---|
-| Port og format | Valgt COM-port, 115200, 8N1 | COM5, 115200, 8N1 | Bevarer portvalg og format; COM5 vælges ved afprøvning |
+| Port og format | Valgt COM-port, 115200, 8N1 | COM5, 115200, 8N1 | Valgt port huskes; fysisk bekræftet ASK-udskrift på COM4 |
 | Cancel Pause | `1B 21 6F`, ingen CR/LF; fejl blev ignoreret | Samme tre bytes | Samme bytes; fejl stopper jobbet |
 | Vent efter Cancel Pause | 100 ms | 500 ms | 500 ms, også på separat Cancel Pause-knap |
 | Rækkefølge | SIZE, GAP, DIRECTION, DENSITY, CLS, BITMAP, PRINT | Samme | Samme |
@@ -47,4 +57,4 @@ Der ændres ikke i platformenes Bluetooth-backends, COM-portdetektion eller baud
 
 ## Automatiske kontroller
 
-Tests sammenligner referencekommandoerne byte for byte, de ni jobdele, de 3408 payloadbytes, de tre Cancel Pause-bytes og begge pausers værdier og placering. De kontrollerer også korte writes, fejl ved Cancel Pause, udelukkelse af batterikommandoer under udskrivning, binære batterisvar, faktisk TX/RX-log og logeksport samt tidligere funktioner. Ventetiderne testes med en injiceret ventefunktion; fysisk Bluetooth-timing skal stadig efterprøves under Windows 11.
+Tests sammenligner referencekommandoerne byte for byte, de ni jobdele, de 3408 payloadbytes, de tre Cancel Pause-bytes og begge pausers værdier og placering. De kontrollerer også korte writes, fejl ved Cancel Pause, udelukkelse af batterikommandoer under udskrivning, binære batterisvar, faktisk TX/RX-log og logeksport samt tidligere funktioner. Ventetiderne testes med en injiceret ventefunktion; udskrivning med v1.0.1 er nu fysisk bekræftet under Windows 11, mens timingændringernes individuelle effekt stadig ikke er isoleret.

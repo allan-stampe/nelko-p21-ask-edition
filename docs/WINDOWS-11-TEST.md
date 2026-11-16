@@ -2,10 +2,13 @@
 
 ## Hent programmet
 
-1. Åbn GitHub → Actions → **ASK Edition - Windows x64**.
-2. Vælg en grøn kørsel på `develop/ask-edition-v1.0.1`.
-3. Hent artefaktet `NELKO-P21-ASK-Edition-v1.0.1-windows-amd64` (GitHub-login kan være nødvendigt).
-4. Udpak downloadens ZIP-fil og derefter programpakken. Start EXE-filen.
+1. Åbn [den officielle v1.0.1-release](https://github.com/allan-stampe/nelko-p21-ask-edition/releases/tag/v1.0.1).
+2. Hent `NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.exe` eller den samlede ZIP-pakke. Offentlige release-filer kan hentes uden GitHub-login.
+3. Udpak ZIP-pakken, hvis du valgte den, og start EXE-filen.
+
+## Bekræftet resultat
+
+Den 16. november 2026 bekræftede projektejeren fysisk udskrivning fra ASK Edition v1.0.1 på Windows 11 via **COM4, 115200 baud, 8N1**. Den resterende fejl var forkert COM-port. Brug den korrekte port på din egen pc; COM4 er ikke hardkodet. De øvrige punkter nedenfor er fortsat en testcheckliste og er ikke alle rapporteret som fysisk gennemført.
 
 Programmet er ikke kodesigneret. Ingen Go-installation er nødvendig for at køre det.
 
@@ -40,7 +43,7 @@ Automatiske tests kan ikke bekræfte Bluetooth-forbindelsen, det fysiske udskrif
 
 ## Ny diagnostisk reference i v1.0.1
 
-1. Luk PowerShell-forbindelsen og andre programmer, der holder COM5 åben. Tilslut COM5 i ASK Edition (115200 baud, 8N1).
+1. Luk PowerShell-forbindelsen og andre programmer, der holder printerens port åben. Tilslut den korrekte port (**COM4 på den bekræftede pc**) i ASK Edition (115200 baud, 8N1).
 2. Lad **Diagnostik → Automatiske batteriforespørgsler** være slået fra (standard). Der sendes dermed ingen batteriforespørgsel ved tilslutning eller under sundhedskontrol. Andre etiketindstillinger bevares.
 3. Tryk **Reference-testudskrift**. Testen bruger altid 14x40 mm, density 15, bitmap mode 1 og én kopi, uanset den aktuelle etiket og tekst. Den sender `1B 21 6F`, venter 500 ms, sender kommandolinjer/header/binære data i rækkefølge og venter 3 sekunder efter `PRINT 1`.
 4. Kontrollér det fysiske resultat. Testmønstret indeholder en ramme og tre bjælker i 3408 rå bytes. Bitmapindholdet er nyt, da PowerShell-testens bitmapbytes ikke er leveret. Notér også, hvis mønstret er inverteret.
@@ -50,4 +53,4 @@ Automatiske tests kan ikke bekræfte Bluetooth-forbindelsen, det fysiske udskrif
 
 Loggen gemmes kun i hukommelsen, indtil du selv eksporterer den; den kan indeholde etikettens tekst og billeddata. Den nyeste log er begrænset til cirka 256 KiB formateret tekst, og det markeres, hvis ældre poster er faldet ud. Gem efter hver test. ASCII bruger escape-sekvenser for binære tegn; HEX viser de faktiske byteværdier. RX vises, når programmet læser et kommandosvar; der er ingen separat læsetråd, der kan stjæle svaret.
 
-Se også [sammenligning med PowerShell-sekvensen](PRINT-DIAGNOSTICS-v1.0.1.md). Det er endnu ikke fastslået, hvilken forskel der har betydning på fysisk hardware.
+Se også [sammenligning med PowerShell-sekvensen](PRINT-DIAGNOSTICS-v1.0.1.md). Den seneste hardwaretest bekræfter udskrivning efter valg af COM4. Den isolerer ikke effekten af timingændringerne.

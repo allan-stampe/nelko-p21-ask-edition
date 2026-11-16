@@ -533,6 +533,22 @@ func (a *App) refreshPorts() {
 		}
 	}
 
+	// Keep the saved serial target visible even if a paired printer is off or
+	// temporarily missing from enumeration. Never substitute another saved port.
+	remembered := a.prefs.LastPrinter
+	if remembered != "" && (a.prefs.ConnectionMode == "port" || strings.HasPrefix(strings.ToUpper(remembered), "COM") || strings.HasPrefix(remembered, `\\.\COM`)) {
+		found := false
+		for _, port := range ports {
+			if port == remembered {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ports = append(ports, remembered)
+		}
+	}
+
 	a.portSelect.Options = ports
 	if len(ports) > 0 {
 		a.portSelect.SetSelected(ports[0])
