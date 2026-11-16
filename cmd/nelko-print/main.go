@@ -541,7 +541,7 @@ func (a *App) getSelectedBluetoothDevice() *printer.BluetoothDevice {
 func (a *App) loadImage() {
 	fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 		if err != nil {
-			dialog.ShowError(err, a.window)
+			a.showError(err)
 			return
 		}
 		if reader == nil {
@@ -551,7 +551,7 @@ func (a *App) loadImage() {
 
 		img, _, err := image.Decode(reader)
 		if err != nil {
-			dialog.ShowError(err, a.window)
+			a.showError(err)
 			return
 		}
 
@@ -564,6 +564,7 @@ func (a *App) loadImage() {
 		}
 	}, a.window)
 
+	a.localizeFileDialog(fd, false)
 	fd.SetFilter(storage.NewExtensionFileFilter([]string{".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"}))
 	fd.Show()
 }
@@ -622,12 +623,12 @@ func (a *App) updateTextPreview() {
 func (a *App) print() {
 	p := a.currentPrinter()
 	if p == nil {
-		dialog.ShowError(fmt.Errorf("%s", a.tr("not connected to printer")), a.window)
+		a.showError(fmt.Errorf("%s", a.tr("not connected to printer")))
 		return
 	}
 
 	if a.sourceImg == nil {
-		dialog.ShowError(fmt.Errorf("%s", a.tr("no image loaded")), a.window)
+		a.showError(fmt.Errorf("%s", a.tr("no image loaded")))
 		return
 	}
 
@@ -649,7 +650,7 @@ func (a *App) print() {
 		if err != nil {
 			a.statusLabel.SetText(fmt.Sprintf(a.tr("Print error: %v"), err))
 			a.connectionFailed(p)
-			dialog.ShowError(err, a.window)
+			a.showError(err)
 		} else {
 			a.statusLabel.SetText(a.tr("Print complete!"))
 		}

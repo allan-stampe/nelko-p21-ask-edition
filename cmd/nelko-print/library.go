@@ -37,7 +37,7 @@ func (a *App) buildLibraryTab() fyne.CanvasObject {
 	}
 	persist := func() {
 		if err := a.library.Save(a.fyneApp.Preferences()); err != nil {
-			dialog.ShowError(err, a.window)
+			a.showError(err)
 		}
 		list.Refresh()
 	}
@@ -54,7 +54,7 @@ func (a *App) buildLibraryTab() fyne.CanvasObject {
 			}
 			snapshot, err := a.snapshot()
 			if err != nil {
-				dialog.ShowError(err, a.window)
+				a.showError(err)
 				return
 			}
 			// Library entries carry print/layout settings, never connection identities.
@@ -62,7 +62,7 @@ func (a *App) buildLibraryTab() fyne.CanvasObject {
 			snapshot.LastPrinterName = ""
 			id := make([]byte, 16)
 			if _, err = rand.Read(id); err != nil {
-				dialog.ShowError(err, a.window)
+				a.showError(err)
 				return
 			}
 			err = a.library.Put(settings.SavedLabel{ID: fmt.Sprintf("%x", id), Name: name.Text, Template: template.Checked, Settings: snapshot})
@@ -93,23 +93,23 @@ func (a *App) buildLibraryTab() fyne.CanvasObject {
 			return
 		}
 		id, name, template := item.ID, item.Name, item.Template
-		dialog.ShowConfirm(a.tr("Replace with current label"), name, func(ok bool) {
+		a.showConfirm(a.tr("Replace with current label"), name, func(ok bool) {
 			if !ok {
 				return
 			}
 			s, err := a.snapshot()
 			if err != nil {
-				dialog.ShowError(err, a.window)
+				a.showError(err)
 				return
 			}
 			s.LastPrinter = ""
 			s.LastPrinterName = ""
 			if err = a.library.Put(settings.SavedLabel{ID: id, Name: name, Template: template, Settings: s}); err != nil {
-				dialog.ShowError(err, a.window)
+				a.showError(err)
 				return
 			}
 			persist()
-		}, a.window)
+		})
 	})
 	rename := widget.NewButton(a.tr("Rename"), func() {
 		item := choose()
@@ -140,14 +140,14 @@ func (a *App) buildLibraryTab() fyne.CanvasObject {
 			return
 		}
 		id, name := item.ID, item.Name
-		dialog.ShowConfirm(a.tr("Delete saved label?"), name, func(ok bool) {
+		a.showConfirm(a.tr("Delete saved label?"), name, func(ok bool) {
 			if ok {
 				a.library.Delete(id)
 				selected = -1
 				list.UnselectAll()
 				persist()
 			}
-		}, a.window)
+		})
 	})
 	return container.NewBorder(container.NewVBox(save, widget.NewLabel(a.tr("Open, edit, then replace the saved label"))), container.NewVBox(container.NewGridWithColumns(2, load, update), container.NewGridWithColumns(2, rename, deleteBtn)), nil, nil, list)
 }

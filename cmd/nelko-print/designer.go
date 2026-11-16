@@ -89,12 +89,13 @@ func (a *App) designerLoadImage() {
 		defer r.Close()
 		img, _, derr := image.Decode(r)
 		if derr != nil {
-			dialog.ShowError(derr, a.window)
+			a.showError(derr)
 			return
 		}
 		a.designCanvas.Add(label.NewImage(img))
 		a.refreshDesignerProps()
 	}, a.window)
+	a.localizeFileDialog(fd, false)
 	fd.SetFilter(storage.NewExtensionFileFilter([]string{".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"}))
 	fd.Show()
 }
@@ -107,13 +108,14 @@ func (a *App) designerSave() {
 		defer w.Close()
 		data, merr := label.MarshalDocument(a.designDoc)
 		if merr != nil {
-			dialog.ShowError(merr, a.window)
+			a.showError(merr)
 			return
 		}
 		if _, werr := w.Write(data); werr != nil {
-			dialog.ShowError(werr, a.window)
+			a.showError(werr)
 		}
 	}, a.window)
+	a.localizeFileDialog(fd, true)
 	fd.SetFileName("label.nlbl")
 	fd.Show()
 }
@@ -126,18 +128,19 @@ func (a *App) designerLoad() {
 		defer r.Close()
 		data, rerr := io.ReadAll(r)
 		if rerr != nil {
-			dialog.ShowError(rerr, a.window)
+			a.showError(rerr)
 			return
 		}
 		doc, derr := label.UnmarshalDocument(data)
 		if derr != nil {
-			dialog.ShowError(derr, a.window)
+			a.showError(derr)
 			return
 		}
 		a.designDoc = doc
 		a.designCanvas.SetDocument(doc)
 		a.rebuildDesigner()
 	}, a.window)
+	a.localizeFileDialog(fd, false)
 	fd.SetFilter(storage.NewExtensionFileFilter([]string{".nlbl", ".json"}))
 	fd.Show()
 }
@@ -150,9 +153,10 @@ func (a *App) designerExportPNG() {
 		defer w.Close()
 		img := label.Render(a.designDoc, a.labelSize)
 		if perr := png.Encode(w, img); perr != nil {
-			dialog.ShowError(perr, a.window)
+			a.showError(perr)
 		}
 	}, a.window)
+	a.localizeFileDialog(fd, true)
 	fd.SetFileName("label.png")
 	fd.Show()
 }

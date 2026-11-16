@@ -88,11 +88,11 @@ func (a *App) connectBluetooth() {
 		return
 	}
 	if err := printer.CheckRFCOMMInstalled(); err != nil {
-		dialog.ShowError(err, a.window)
+		a.showError(err)
 		return
 	}
 	if printer.CheckPrivilegeHelper() == "" {
-		dialog.ShowError(fmt.Errorf("%s", a.tr("No privilege helper (pkexec or sudo)")), a.window)
+		a.showError(fmt.Errorf("%s", a.tr("No privilege helper (pkexec or sudo)")))
 		return
 	}
 	a.startConnection(device.MAC, device.Name, "bluetooth")

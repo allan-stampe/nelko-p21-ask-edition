@@ -7,6 +7,7 @@ import (
 )
 
 var danish = map[string]string{
+	"Error": "Fejl", "Yes": "Ja", "No": "Nej", "Open": "Åbn",
 	"About": "Om programmet", "Help": "Hjælp", "Close": "Luk",
 	"A label printing app for the Nelko P21 thermal printer.": "Etiketprogram til NELKO P21-termoprinteren.",
 	"Based on reverse engineering work from:":                 "Baseret på protokolarbejdet fra:",

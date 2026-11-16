@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 
-	"fyne.io/fyne/v2/dialog"
 	"nelko-print/internal/imaging"
 	"nelko-print/internal/label"
 	"nelko-print/internal/settings"
@@ -14,7 +13,7 @@ func (a *App) loadSettings() {
 	var err error
 	a.prefs, err = settings.Load(a.fyneApp.Preferences())
 	if err != nil {
-		dialog.ShowError(err, a.window)
+		a.showError(err)
 	}
 	a.library, a.libraryErr = settings.LoadLibrary(a.fyneApp.Preferences())
 	if a.libraryErr == nil && a.fyneApp.Preferences().String(settings.LibraryKey) == "" {
@@ -42,7 +41,7 @@ func (a *App) applySettings(s settings.Settings) {
 	if len(s.Design) > 0 {
 		doc, err := label.UnmarshalDocument(s.Design)
 		if err != nil {
-			dialog.ShowError(fmt.Errorf("%s: %w", a.tr("Cannot restore design"), err), a.window)
+			a.showError(fmt.Errorf("%s: %w", a.tr("Cannot restore design"), err))
 		} else {
 			a.designDoc = doc
 		}
@@ -72,7 +71,7 @@ func (a *App) saveSettings() {
 		err = settings.Save(a.fyneApp.Preferences(), s)
 	}
 	if err != nil {
-		dialog.ShowError(err, a.window)
+		a.showError(err)
 	}
 }
 
