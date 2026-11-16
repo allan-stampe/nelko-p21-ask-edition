@@ -1,9 +1,10 @@
 package printer
 
 import (
-	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -23,7 +24,9 @@ type Printer struct {
 	port     serial.Port
 	portName string
 	mac      string
-	mu       sync.Mutex // serializes all port I/O
+	mu       sync.Mutex // serializes all port I/O, including print delays
+	log      *CommunicationLog
+	sleep    func(time.Duration) // test seam; nil uses time.Sleep
 }
 
 // FindRFCOMMDevices lists available /dev/rfcomm* devices
@@ -73,15 +76,15 @@ func ConnectRFCOMM(mac string, channel int) (string, error) {
 		if err := cmd.Start(); err != nil {
 			continue
 		}
-		
+
 		// Give it a moment to connect
 		time.Sleep(2 * time.Second)
-		
+
 		// Check if device exists now
 		if _, err := exec.Command("test", "-e", devPath).Output(); err == nil {
 			return devPath, nil
 		}
-		
+
 		cmd.Process.Kill()
 		devNum++
 	}
@@ -91,6 +94,10 @@ func ConnectRFCOMM(mac string, channel int) (string, error) {
 
 // Connect opens a connection to the printer on the given serial port
 func Connect(portName string) (*Printer, error) {
+	return ConnectWithLog(portName, nil)
+}
+
+func ConnectWithLog(portName string, log *CommunicationLog) (*Printer, error) {
 	mode := &serial.Mode{
 		BaudRate: 115200,
 		DataBits: 8,
@@ -100,14 +107,22 @@ func Connect(portName string) (*Printer, error) {
 
 	port, err := serial.Open(portName, mode)
 	if err != nil {
+		log.Record(portName, "OPEN", nil, err.Error())
 		return nil, fmt.Errorf("failed to open port %s: %w", portName, err)
 	}
 
-	port.SetReadTimeout(3 * time.Second)
+	if err = port.SetReadTimeout(3 * time.Second); err != nil {
+		port.Close()
+		log.Record(portName, "OPEN", nil, err.Error())
+		return nil, err
+	}
+	log.Record(portName, "OPEN", nil, "115200 baud, 8N1; read timeout 3s")
+	port = &loggedPort{Port: port, log: log, name: portName}
 
 	p := &Printer{
 		port:     port,
 		portName: portName,
+		log:      log,
 	}
 
 	return p, nil
@@ -125,45 +140,65 @@ func (p *Printer) Close() error {
 	return nil
 }
 
-// sendCommandLocked sends a command and optionally reads a response.
-// Caller must hold mu.
-func (p *Printer) sendCommandLocked(cmd string) (string, error) {
+// queryLocked reads binary bytes until LF or the existing serial read timeout.
+// Partial replies and replies without LF are retained and logged unchanged.
+func (p *Printer) queryLocked(cmd string) ([]byte, error) {
 	if p.port == nil {
-		return "", ErrNotConnected
+		return nil, ErrNotConnected
 	}
-
-	// Send command with CRLF
-	_, err := p.port.Write([]byte(cmd + "\r\n"))
-	if err != nil {
-		return "", fmt.Errorf("write failed: %w", err)
+	if err := p.writeAllLocked([]byte(cmd + "\r\n")); err != nil {
+		return nil, err
 	}
-
-	// Read response
-	reader := bufio.NewReader(p.port)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return "", nil // Some commands don't respond
+	var response []byte
+	buf := make([]byte, 256)
+	for len(response) < 4096 {
+		n, err := p.port.Read(buf)
+		if n < 0 || n > len(buf) {
+			return response, fmt.Errorf("invalid read count %d", n)
+		}
+		response = append(response, buf[:n]...)
+		if err != nil {
+			return response, fmt.Errorf("read failed: %w", err)
+		}
+		if n == 0 {
+			if len(response) == 0 {
+				return nil, ErrTimeout
+			}
+			return response, nil
+		}
+		start := 0
+		if cmd == "BATTERY?" {
+			start = 8
+		}
+		if len(response) > start && bytes.Contains(response[start:], []byte{'\n'}) {
+			return response, nil
+		}
 	}
-
-	return strings.TrimSpace(response), nil
+	return response, errors.New("response exceeds 4096 bytes")
 }
 
-// GetBattery queries the battery level
+func (p *Printer) sendCommandLocked(cmd string) (string, error) {
+	response, err := p.queryLocked(cmd)
+	return string(bytes.TrimSuffix(response, []byte("\r\n"))), err
+}
+
+// GetBattery keeps the existing BATTERY? query. Binary payloads are never
+// TrimSpace'd: valid percentages include whitespace bytes such as 10 and 32.
 func (p *Printer) GetBattery() (int, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	resp, err := p.sendCommandLocked("BATTERY?")
+	response, err := p.queryLocked("BATTERY?")
 	if err != nil {
 		return 0, err
 	}
-
-	// Response format: "BATTERY" followed by bytes
-	if len(resp) > 7 {
-		// First byte after "BATTERY" is percentage
-		return int(resp[7]), nil
+	if !bytes.HasPrefix(response, []byte("BATTERY")) || len(response) < 8 {
+		return 0, errors.New("invalid battery response")
 	}
-
-	return 0, errors.New("invalid battery response")
+	level := int(response[7])
+	if level > 100 {
+		return 0, errors.New("battery percentage outside 0..100")
+	}
+	return level, nil
 }
 
 // GetConfig queries printer configuration
@@ -180,13 +215,16 @@ func (p *Printer) CancelPause() error {
 	if p.port == nil {
 		return ErrNotConnected
 	}
-	return p.cancelPauseLocked()
+	if err := p.cancelPauseLocked(); err != nil {
+		return err
+	}
+	p.waitLocked(CancelPauseDelay)
+	return nil
 }
 
 // cancelPauseLocked sends the cancel-pause escape sequence. Caller must hold mu.
 func (p *Printer) cancelPauseLocked() error {
-	_, err := p.port.Write([]byte("\x1b!o"))
-	return err
+	return p.writeAllLocked([]byte{0x1b, 0x21, 0x6f})
 }
 
 // CheckReady checks if printer is ready
@@ -196,7 +234,7 @@ func (p *Printer) CheckReady() (bool, error) {
 	if p.port == nil {
 		return false, ErrNotConnected
 	}
-	_, err := p.port.Write([]byte("\x1b!?"))
+	err := p.writeAllLocked([]byte("\x1b!?"))
 	if err != nil {
 		return false, err
 	}
@@ -216,7 +254,7 @@ func (p *Printer) Ping() error {
 		return ErrNotConnected
 	}
 	_ = p.port.ResetInputBuffer()
-	if _, err := p.port.Write([]byte("BATTERY?\r\n")); err != nil {
+	if err := p.writeAllLocked([]byte("BATTERY?\r\n")); err != nil {
 		return fmt.Errorf("write failed: %w", err)
 	}
 	buf := make([]byte, 32)
@@ -230,24 +268,60 @@ func (p *Printer) Ping() error {
 	return nil
 }
 
-// Print sends raw print data to the printer
-func (p *Printer) Print(data []byte) error {
+const CancelPauseDelay = 500 * time.Millisecond
+const PrintSettleDelay = 3 * time.Second
+
+func (p *Printer) waitLocked(delay time.Duration) {
+	p.log.Record(p.portName, "WAIT", nil, delay.String())
+	if p.sleep != nil {
+		p.sleep(delay)
+	} else {
+		time.Sleep(delay)
+	}
+}
+
+// writeAllLocked handles short serial writes and never skips a byte.
+func (p *Printer) writeAllLocked(data []byte) error {
+	for len(data) > 0 {
+		n, err := p.port.Write(data)
+		if n < 0 || n > len(data) {
+			return io.ErrShortWrite
+		}
+		data = data[n:]
+		if err != nil {
+			return fmt.Errorf("write failed: %w", err)
+		}
+		if n == 0 {
+			return io.ErrShortWrite
+		}
+	}
+	return nil
+}
+
+// Print holds the same serial mutex over the complete reference sequence,
+// preventing battery/status commands during the two required quiet periods.
+// Successful return means the bytes were written and the settle delay elapsed;
+// it is not a printer acknowledgement or confirmation of physical output.
+func (p *Printer) Print(data []byte) error { return p.PrintChunks([][]byte{data}) }
+
+// PrintChunks preserves the caller's write boundaries while holding the same
+// transaction lock across all parts and both quiet periods.
+func (p *Printer) PrintChunks(parts [][]byte) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.port == nil {
 		return ErrNotConnected
 	}
-
-	// Cancel any pause state first
-	p.cancelPauseLocked()
-	time.Sleep(100 * time.Millisecond)
-
-	// Send print data
-	_, err := p.port.Write(data)
-	if err != nil {
-		return fmt.Errorf("print failed: %w", err)
+	if err := p.cancelPauseLocked(); err != nil {
+		return fmt.Errorf("cancel pause: %w", err)
 	}
-
+	p.waitLocked(CancelPauseDelay)
+	for _, data := range parts {
+		if err := p.writeAllLocked(data); err != nil {
+			return fmt.Errorf("print failed: %w", err)
+		}
+	}
+	p.waitLocked(PrintSettleDelay)
 	return nil
 }
 

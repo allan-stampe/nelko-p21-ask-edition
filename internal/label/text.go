@@ -9,7 +9,7 @@ import (
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/goregular"
+	"nelko-print/internal/fonts"
 
 	"nelko-print/internal/imaging"
 )
@@ -17,6 +17,7 @@ import (
 type TextElement struct {
 	Base
 	Text     string
+	FontName string
 	FontSize float64
 	Invert   bool
 }
@@ -47,7 +48,7 @@ func (t *TextElement) Raster(scale float64) image.Image {
 		return RenderRotated(img, t.A)
 	}
 
-	f, err := truetype.Parse(goregular.TTF)
+	f, err := fonts.Parse(t.FontName)
 	if err != nil {
 		return RenderRotated(img, t.A)
 	}
@@ -66,6 +67,7 @@ func (t *TextElement) Raster(scale float64) image.Image {
 	c.SetHinting(font.HintingFull)
 
 	face := truetype.NewFace(f, &truetype.Options{Size: size, DPI: 203})
+	defer face.Close()
 	metrics := face.Metrics()
 	lineH := metrics.Height.Ceil()
 	lines := imaging.WrapWordOnly(t.Text, face, w-2)

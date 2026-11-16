@@ -1,0 +1,82 @@
+name: ASK Edition - Windows x64
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests and vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: true
+      - name: Verify application version and release tag
+        env:
+          PACKAGE_VERSION: '1.0.1'
+        run: |
+          python3 - <<'PYVERSION'
+          import os, re
+          from pathlib import Path
+          version = re.search(r'AppVersion\s*=\s*"([^"]+)"', Path('cmd/nelko-print/main.go').read_text()).group(1)
+          assert version == os.environ['PACKAGE_VERSION'], 'Update package names with AppVersion'
+          if os.environ['GITHUB_REF_TYPE'] == 'tag':
+              assert os.environ['GITHUB_REF_NAME'] == 'v' + version, 'Tag must match AppVersion'
+          PYVERSION
+      - name: Verify modules
+        run: go mod download && go mod verify
+      - name: Run all tests with race detector
+        run: go test -tags ci -race -count=1 ./...
+      - name: Vet
+        run: go vet -tags ci ./...
+
+  windows:
+    name: Windows 64-bit EXE
+    needs: test
+    runs-on: windows-latest
+    env:
+      GOOS: windows
+      GOARCH: amd64
+      CGO_ENABLED: '1'
+      CC: gcc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: true
+      - name: Set up native C compiler for Fyne
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          install: mingw-w64-x86_64-gcc
+      - name: Test Windows code paths
+        shell: msys2 {0}
+        run: go test -tags ci -count=1 ./...
+      - name: Build standalone Windows GUI executable
+        shell: msys2 {0}
+        run: |
+          mkdir -p dist
+          go build -mod=readonly -trimpath -ldflags="-s -w -H=windowsgui" -o dist/NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.exe ./cmd/nelko-print
+      - name: Package with original license and credits
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE, README.md, CHANGELOG.md, ROADMAP.md, docs/WINDOWS-11-TEST.md, docs/PRINT-DIAGNOSTICS-v1.0.1.md, docs/RELEASE-v1.0.1.md dist/
+          Compress-Archive -Path dist/* -DestinationPath NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.zip
+      - name: Upload Windows download
+        uses: actions/upload-artifact@v4
+        with:
+          name: NELKO-P21-ASK-Edition-v1.0.1-windows-amd64
+          path: NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.zip
+          if-no-files-found: error
+          retention-days: 30

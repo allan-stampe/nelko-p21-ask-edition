@@ -42,7 +42,7 @@ func (c *Command) Size(width, height float64) *Command {
 
 // Gap sets gap between labels
 func (c *Command) Gap(gap, offset float64) *Command {
-	fmt.Fprintf(&c.buf, "GAP %.1f mm,%.1f mm\r\n", gap, offset)
+	fmt.Fprintf(&c.buf, "GAP %.1f mm,%g mm\r\n", gap, offset)
 	return c
 }
 
