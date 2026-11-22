@@ -313,7 +313,7 @@ func TestDiagnosticsLogExportAndLanguage(t *testing.T) {
 		t.Fatal("communication view can be edited")
 	}
 	text := a.communicationLogText()
-	for _, want := range []string{"v1.0.1", "COM5", "TX 3 bytes", "RX 7 bytes", "ASCII:", "HEX:", "1b 21 6f"} {
+	for _, want := range []string{"v1.0.2", "COM5", "TX 3 bytes", "RX 7 bytes", "ASCII:", "HEX:", "1b 21 6f"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("export missing %q", want)
 		}

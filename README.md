@@ -1,4 +1,4 @@
-# NELKO P21 – ASK Edition v1.0.1
+# NELKO P21 – ASK Edition v1.0.2
 
 > **Your printer. Your labels. Your data.**<br>
 > **No cloud. No account. Just print.**
@@ -7,7 +7,7 @@ ASK Edition of **Fyne-P21-Print**, the cross-platform Go/Fyne label maker for NE
 
 **Hardware confirmed:** the project owner reported successful printing with ASK Edition v1.0.1 on a physical NELKO P21 under Windows 11 on **16 November 2026**, using **COM4, 115200 baud, 8N1**. The remaining problem was selecting the wrong COM port. COM numbers depend on the PC: select the printer's actual outgoing Bluetooth port rather than assuming COM4 or COM5. The timing changes were not individually isolated as the cause of the earlier failures.
 
-[Download the official v1.0.1 Windows release](https://github.com/allan-stampe/nelko-p21-ask-edition/releases/tag/v1.0.1) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
+[Download the official v1.0.2 Windows release](https://github.com/allan-stampe/nelko-p21-ask-edition/releases/tag/v1.0.2) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
 - Editable multiline Designer text with a scrollable property editor.
 - Automatic preferences: bundled font (Go Regular / Bold / Mono), size, label dimensions, darkness, text, orientation and last printer.
@@ -19,8 +19,8 @@ ASK Edition of **Fyne-P21-Print**, the cross-platform Go/Fyne label maker for NE
 
 ### Windows 11 download and testing
 
-1. Open the [official v1.0.1 release](https://github.com/allan-stampe/nelko-p21-ask-edition/releases/tag/v1.0.1).
-2. Download `NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.exe`, or the ZIP containing the EXE, original MIT license, credits, changelog, roadmap and diagnostic guides.
+1. Open the [official v1.0.2 release](https://github.com/allan-stampe/nelko-p21-ask-edition/releases/tag/v1.0.2).
+2. Download `NELKO-P21-ASK-Edition-v1.0.2-windows-amd64.exe`, or the ZIP containing the EXE, original MIT license, credits, changelog, roadmap and diagnostic guides.
 3. Pair the printer in Windows Bluetooth settings. Close PowerShell or other programs using its serial port.
 4. Select the correct outgoing COM port and connect. **COM4 worked on the tested PC; your PC may use another port.**
 5. The selected port and connection method are saved locally. On restart, **Auto reconnect** reopens that exact saved target. The manual port selector retains the remembered port even when it is temporarily absent from detection; the app does not silently reconnect to a different port.
@@ -77,7 +77,7 @@ Here are some vibe docs, I really don't expect anyone to use it but if you stumb
 ```
 
 ### Windows
-1. Download `NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.exe` from the official release (or build from source)
+1. Download `NELKO-P21-ASK-Edition-v1.0.2-windows-amd64.exe` from the official release (or build from source)
 2. Pair your Nelko P21 via Windows Bluetooth settings
 3. Run the app and select your printer's COM port
 4. Print!
@@ -169,7 +169,7 @@ The app automatically handles the RFCOMM connection that previously required man
 
 1. **Pair the printer** via Windows Settings → Bluetooth & devices
 2. **Note the COM port** assigned (check Device Manager → Ports if unsure)
-3. **Run the app**: `NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.exe`
+3. **Run the app**: `NELKO-P21-ASK-Edition-v1.0.2-windows-amd64.exe`
 4. **Select your COM port** from the dropdown
 5. **Click Connect** and print!
 
@@ -280,3 +280,7 @@ Make sure the printer is paired in your system's Bluetooth settings first. The a
 ## License
 
 MIT
+
+## Windows v1.0.2 icon update
+
+The Windows EXE now embeds the owner-supplied NELKO P21 / Windows / ASK Edition icon (16/32/48/256 pixels) and uses it for the Fyne application/window. Windows file/product version is 1.0.2.0. All SPP/COM/printer code remains unchanged from the physically tested v1.0.1; the mobile repository is untouched. See [icon packaging, checks and Windows 11 checklist](docs/WINDOWS-ICON-v1.0.2.md).
