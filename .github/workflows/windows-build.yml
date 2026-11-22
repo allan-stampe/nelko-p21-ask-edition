@@ -22,7 +22,7 @@ jobs:
           cache: true
       - name: Verify application version and release tag
         env:
-          PACKAGE_VERSION: '1.0.1'
+          PACKAGE_VERSION: '1.0.2'
         run: |
           python3 - <<'PYVERSION'
           import os, re
@@ -32,6 +32,8 @@ jobs:
           if os.environ['GITHUB_REF_TYPE'] == 'tag':
               assert os.environ['GITHUB_REF_NAME'] == 'v' + version, 'Tag must match AppVersion'
           PYVERSION
+      - name: Verify required icon sizes and runtime artwork
+        run: python3 tools/verify_windows_icon.py
       - name: Verify modules
         run: go mod download && go mod verify
       - name: Run all tests with race detector
@@ -60,6 +62,11 @@ jobs:
           msystem: MINGW64
           path-type: inherit
           install: mingw-w64-x86_64-gcc
+      - name: Compile Windows EXE icon and version resources
+        shell: msys2 {0}
+        run: |
+          cd cmd/nelko-print
+          windres --codepage=65001 --target=pe-x86-64 -O coff -i app.rc -o app_windows_amd64.syso
       - name: Test Windows code paths
         shell: msys2 {0}
         run: go test -tags ci -count=1 ./...
@@ -67,16 +74,24 @@ jobs:
         shell: msys2 {0}
         run: |
           mkdir -p dist
-          go build -mod=readonly -trimpath -ldflags="-s -w -H=windowsgui" -o dist/NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.exe ./cmd/nelko-print
+          go build -mod=readonly -trimpath -ldflags="-s -w -H=windowsgui" -o dist/NELKO-P21-ASK-Edition-v1.0.2-windows-amd64.exe ./cmd/nelko-print
+      - name: Verify embedded PE icon resources
+        shell: pwsh
+        run: python tools/verify_windows_icon.py --exe dist/NELKO-P21-ASK-Edition-v1.0.2-windows-amd64.exe
+      - name: Verify icons load through Windows APIs and check version metadata
+        shell: pwsh
+        run: ./tools/verify_windows_icon.ps1 -Exe dist/NELKO-P21-ASK-Edition-v1.0.2-windows-amd64.exe
       - name: Package with original license and credits
         shell: pwsh
         run: |
-          Copy-Item LICENSE, README.md, CHANGELOG.md, ROADMAP.md, docs/WINDOWS-11-TEST.md, docs/PRINT-DIAGNOSTICS-v1.0.1.md, docs/RELEASE-v1.0.1.md dist/
-          Compress-Archive -Path dist/* -DestinationPath NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.zip
+          Copy-Item LICENSE, README.md, CHANGELOG.md, ROADMAP.md, docs/WINDOWS-11-TEST.md, docs/PRINT-DIAGNOSTICS-v1.0.1.md, docs/RELEASE-v1.0.2.md dist/
+          Copy-Item cmd/nelko-print/assets/app-icon.ico dist/NELKO-P21-ASK-Edition.ico
+          Copy-Item docs/WINDOWS-ICON-v1.0.2.md dist/
+          Compress-Archive -Path dist/* -DestinationPath NELKO-P21-ASK-Edition-v1.0.2-windows-amd64.zip
       - name: Upload Windows download
         uses: actions/upload-artifact@v4
         with:
-          name: NELKO-P21-ASK-Edition-v1.0.1-windows-amd64
-          path: NELKO-P21-ASK-Edition-v1.0.1-windows-amd64.zip
+          name: NELKO-P21-ASK-Edition-v1.0.2-windows-amd64
+          path: NELKO-P21-ASK-Edition-v1.0.2-windows-amd64.zip
           if-no-files-found: error
           retention-days: 30

@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	AppVersion = "1.0.1"
+	AppVersion = "1.0.2"
 	AppName    = "NELKO P21 – ASK Edition"
 )
 
@@ -93,7 +93,9 @@ type App struct {
 
 func main() {
 	a := app.NewWithID("dk.ask.nelko-p21")
+	a.SetIcon(appIcon)
 	w := a.NewWindow(fmt.Sprintf("%s v%s", AppName, AppVersion))
+	w.SetIcon(appIcon)
 	w.Resize(fyne.NewSize(1060, 820))
 
 	nelkoApp := &App{fyneApp: a, window: w}

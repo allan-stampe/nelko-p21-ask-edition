@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.2
+
+- Use the owner's supplied Windows/ASK Edition artwork as the program icon; ICO sizes 16/32/48/256.
+- Embed the icon and Windows version metadata in the x64 GUI EXE and set the Fyne application/window icon for window/taskbar display.
+- Add automated ICO/PE resource comparison and native Windows icon-loading/version checks.
+- Keep Bluetooth Classic SPP, COM/serial connection, printing, bitmap generation, diagnostics, MIT license and original developer credits unchanged.
+- Version v1.0.2; Windows file/product version 1.0.2.0. Physical v1.0.2 testing remains for the owner.
+
 ## v1.0.1 — 2026-11-16
 
 ### Hardware confirmation

@@ -34,3 +34,6 @@ go.work.sum
 /nelko-print
 /work/
 /dist/
+
+# Generated Windows resource object
+*.syso

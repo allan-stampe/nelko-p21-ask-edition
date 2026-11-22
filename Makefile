@@ -8,7 +8,7 @@ run: build
 	./nelko-print
 
 clean:
-	rm -f nelko-print nelko-print.exe
+	rm -f nelko-print nelko-print.exe cmd/nelko-print/app_windows_amd64.syso
 
 deps:
 	go mod tidy
@@ -21,6 +21,7 @@ setup:
 
 # Build for Windows (from Linux)
 build-windows:
+	cd cmd/nelko-print && x86_64-w64-mingw32-windres --codepage=65001 --target=pe-x86-64 -O coff -i app.rc -o app_windows_amd64.syso
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc \
 		go build -o nelko-print.exe ./cmd/nelko-print
 
